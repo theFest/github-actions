@@ -1,15 +1,11 @@
 ############################################################################################################################################################################
-# GitHub Actions (Web or API App)                                                                                                                                          #
-#                                                                                                                                                                          #
-#                                                                                                                                                                          #
+# GitHub Actions (Web or API App(AppService))                                                                                                                              #
 #                                            ____  ____  _______   ______________   __             __  __         ______          __                                       #
 #                                           / __ \/ __ \/_  __/ | / / ____/_  __/  / /_  __  __   / /_/ /_  ___  / ____/__  _____/ /_                                      #
 #                                          / / / / / / / / / /  |/ / __/   / /    / __ \/ / / /  / __/ __ \/ _ \/ /_  / _ \/ ___/ __/                                      #
 #                                         / /_/ / /_/ / / / / /|  / /___  / /    / /_/ / /_/ /  / /_/ / / /  __/ __/ /  __(__  ) /_                                        #
 #                                        /_____/\____/ /_/ /_/ |_/_____/ /_/    /_.___/\__, /   \__/_/ /_/\___/_/    \___/____/\__/                                        #
 #                                                                                     /____/                                                                               #
-#                                                                                                                                                                          #
-#                                                                                                                                                                          #
 # v1.0 - by theFest                                                                                                                                                [ FW ]  #
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#
 #------------------------------------------------------> General information and configuration related to this workflow <--------------------------------------------------#
@@ -19,10 +15,10 @@
 # 2.) Create a secret in your repository named AZURE_WEBAPP_PUBLISH_PROFILE, paste the publish profile contents as the value of the secret.                                #
 # 3.) Change the value for the AZURE_WEBAPP_NAME. Optionally, change the AZURE_WEBAPP_PACKAGE_PATH and DOTNET_VERSION environment variables below.                         #
 # 4.) Modify, add or delete path in 'paths' - meaning trigger will only occur if changes are made on that project path.                                                    #
-# 5.) Optionally change name of the workflow, both on local disk and here inside Workflow file itself, add suffix like 'Test' or 'Prod'.                                   #
+# 5.) Optionally change name of the workflow, both on local disk and here inside Workflow file itself, add suffix like 'Test', 'Stage' or 'Prod'.                          #
 # Notes:                                                                                                                                                                   #
-#  -If you encounter any misconfiguration, bugs or errors create a pull request                                                                                            #
-#  -Workflow complexity: 'Basic'                                                                                                              DotNET - Runs on: 'Windows'  #
+#  -if you encounter any misconfiguration, bugs or errors create a pull request                                                                                            #
+#  -workflow complexity: 'Basic'                                                                                                              DotNET - Runs on: 'Windows'  #
 ############################################################################################################################################################################
 
 name: DotNET - API 
@@ -33,7 +29,7 @@ env:
   DOTNET_VERSION: ''                               # set this to the .NET Core version to use, either '6.x.x' or '7.x.x' or use matrix
   DOTNET_PROJECT: ''                               # path of your WebAPI project file, precisely where is .csproj file located
   DOTNET_SOLUTION: ''                              # path of your solution file, precisely where is .sln file located
-  DOTNET_API_PATH: ''                              # here define path which if changed there, will trigger workflow
+  DOTNET_API_PATH: ''                              # here define path which if changed on that path, will trigger workflow
   ASPNETCORE_ENVIRONMENT: 'Production'             # this is related to DotNET configuration, use 'Production' for now
   
 on:
