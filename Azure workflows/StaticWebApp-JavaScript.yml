@@ -1,0 +1,84 @@
+############################################################################################################################################################################
+# GitHub Actions (Static Web App)                                                                                                                                          #
+#                                                                                                                                                                          #
+#                               __                  _____           _       __     __             __  __         ______          __                                        #
+#                              / /___ __   ______ _/ ___/__________(_)___  / /_   / /_  __  __   / /_/ /_  ___  / ____/__  _____/ /_                                       #
+#                         __  / / __ `/ | / / __ `/\__ \/ ___/ ___/ / __ \/ __/  / __ \/ / / /  / __/ __ \/ _ \/ /_  / _ \/ ___/ __/                                       #
+#                        / /_/ / /_/ /| |/ / /_/ /___/ / /__/ /  / / /_/ / /_   / /_/ / /_/ /  / /_/ / / /  __/ __/ /  __(__  ) /_                                         #
+#                        \____/\__,_/ |___/\__,_//____/\___/_/  /_/ .___/\__/  /_.___/\__, /   \__/_/ /_/\___/_/    \___/____/\__/                                         #
+#                                                                /_/                 /____/                                                                                #
+# v1.0 - by theFest                                                                                                                                                [ FW ]  #
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#
+#--------------------------------------------------------> General information and configuration related to this workflow <------------------------------------------------#
+#                                                                                                                                                                          #
+# *** This workflow will build and push Client app to an Azure Static Web App when a commit is pushed to your default branch.                                              #
+# 1.) First we need token, we can get it by going to your Azure Static Web App and copy deployment token from the tab menu.                                                #
+# 2.) Create a 'repository secret' in your repository named AZURE_STATIC_WEB_APPS_API_TOKEN, paste the deployment token contents as the value of the secret.               #
+# 3.) Change the value for the APP_LOCATION. Modify value of APP_ARTIFACT_LOCATION as this is output of the app, optionally change the API_LOCATION.                       #
+# 4.) Remove, modify or delete path in 'paths' - meaning trigger will only occur if changes are made on that project path.                                                 #
+# 5.) Optionally change name of the workflow, both on local disk and here inside Workflow file itself, add suffix like 'Test', 'Stage' or 'Prod'.                          #
+# Notes:                                                                                                                                                                   #
+#  -if you encounter any misconfiguration, bugs or errors create a pull request                                                                                            #
+#  -workflow complexity: 'Basic'                                                                                                             Javascript - Runs on: 'Linux' #
+############################################################################################################################################################################
+
+name: JavaScript - Client
+
+env:
+  APP_LOCATION: ''                                                                # relative path of your client code
+  API_LOCATION: ''                                                                # path of your api source code, you can leave it blank
+  APP_ARTIFACT_LOCATION: ''                                                       # relative path of client code build output, usually 'dist/client'
+  APP_CLIENT_PATH: ''                                                             # here define path which if changed on that path, will trigger workflow
+  AZURE_STATIC_WEB_APPS_API_TOKEN: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN }} # deployment token that contains secret of your Static Web App
+
+on:
+  push:
+    branches: [ $default-branch ]
+
+  pull_request:
+    types: [opened, synchronize, reopened, closed]
+    branches: [ $default-branch ]
+
+    paths:
+     - ${{ env.APP_CLIENT_PATH }}
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build_and_deploy_job:
+    permissions:
+      contents: read
+      pull-requests: write
+    if: github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.action != 'closed')
+    runs-on: ubuntu-latest
+    name: Build and Deploy Job
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          submodules: true
+      - name: Build And Deploy
+        id: builddeploy
+        uses: Azure/static-web-apps-deploy@v1
+        with:
+          azure_static_web_apps_api_token: ${{ env.AZURE_STATIC_WEB_APPS_API_TOKEN }}
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          action: "upload"
+          app_location: ${{ env.APP_LOCATION }}
+          api_location: ${{ env.API_LOCATION }}
+          app_artifact_location: ${{ env.APP_ARTIFACT_LOCATION }}
+
+  close_pull_request_job:
+    permissions:
+      contents: none
+    if: github.event_name == 'pull_request' && github.event.action == 'closed'
+    runs-on: ubuntu-latest
+    name: Close Pull Request Job
+    steps:
+      - name: Close Pull Request
+        id: closepullrequest
+        uses: Azure/static-web-apps-deploy@v1
+        with:
+          azure_static_web_apps_api_token: ${{ env.AZURE_STATIC_WEB_APPS_API_TOKEN }}
+          action: "close"
