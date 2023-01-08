@@ -1,0 +1,108 @@
+############################################################################################################################################################################
+# GitHub Actions (Web or API App(AppService))                                                                                                                              #
+#                                                                                                                                                                          #
+#                        ____  ____  _______   ______________   ___        _____ ____    __       __             __  __         ______          __                         #
+#                       / __ \/ __ \/_  __/ | / / ____/_  __/  ( _ )      / ___// __ \  / /      / /_  __  __   / /_/ /_  ___  / ____/__  _____/ /_                        #
+#                      / / / / / / / / / /  |/ / __/   / /    / __ \/|    \__ \/ / / / / /      / __ \/ / / /  / __/ __ \/ _ \/ /_  / _ \/ ___/ __/                        #
+#                     / /_/ / /_/ / / / / /|  / /___  / /    / /_/  <    ___/ / /_/ / / /___   / /_/ / /_/ /  / /_/ / / /  __/ __/ /  __(__  ) /_                          #
+#                    /_____/\____/ /_/ /_/ |_/_____/ /_/     \____/\/   /____/\___\_\/_____/  /_.___/\__, /   \__/_/ /_/\___/_/    \___/____/\__/                          #
+#                                                                                                   /____/                                                                 #
+#                                                                                                                                                                          #
+# v1.0 - by theFest                                                                                                                                                [ FW ]  #
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#
+#------------------------------------------------------> General information and configuration related to this workflow <--------------------------------------------------#
+#                                                                                                                                                                          #
+# *** This workflow will build and push a DOT.NET app with SQL migration/update to an Azure Web App when a commit is pushed to your default branch.                        #
+# 1.) Download the Publish Profile for your Azure Web App. You can download this file from the Overview page of your Web App in the Azure Portal.                          #
+# 2.) Create a secret in your repository named AZURE_WEBAPP_PUBLISH_PROFILE, paste the publish profile contents as the value of the secret.                                #
+# 3.) Change the value for the AZURE_WEBAPP_NAME. Other environment variables are described below and can be changed accordingly.                                          #
+# 4.) Modify, add or delete path in 'paths' - meaning trigger will only occur if changes are made on that project path.                                                    #
+# 5.) Optionally change name of the workflow, both on local disk and here inside Workflow file itself, add suffix like 'Test', 'Stage' or 'Prod'.                          #
+# Notes:                                                                                                                                                                   #
+#  -if you encounter any misconfiguration, bugs or errors create a pull request                                                                                            #
+#  -workflow complexity: 'Basic'                                                                                                     DotNET with SQL - Runs on: 'Windows'  #
+############################################################################################################################################################################
+
+name: DotNET with SQL - API
+
+env:
+  AZURE_WEBAPP_NAME: ''                            # same one  that is on Azure Resource(WebApp) has to be set here.
+  AZURE_WEBAPP_PACKAGE_PATH: '.'                   # path to your web app project, defaults to the repository root
+  DOTNET_VERSION: ''                               # set this to the .NET Core version to use, either '6.x.x' or '7.x.x' or use matrix
+  DOTNET_PROJECT: ''                               # path of your project file, precisely where is .csproj file is located
+  DOTNET_STARTPRO: ''                              # path of your Startup Project file, precisely where is .csproj file resides
+  DOTNET_SOLUTION: ''                              # path of your solution file, precisely where is .sln file located
+  DOTNET_API_PATH: ''                              # here define path which if changed on that path, will trigger workflow
+  AZURE_SQL_SERVER: ''                             # enter your Azure SQL Server name - e.g. tcp:your_server.database.windows.net
+  ASPNETCORE_ENVIRONMENT: 'Production'             # this is related to DotNET configuration, use 'Production' for now
+  
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  Build:
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Set up DOTNET Core
+        uses: actions/setup-dotnet@v1
+        with:
+          dotnet-version: ${{env.DOTNET_VERSION}}
+          include-prerelease: true
+
+      - name: Build with DOTNET
+        run: dotnet build ${{env.DOTNET_SOLUTION}} --configuration Release
+
+      - name: Install EF Tool
+        run: |
+            dotnet new tool-manifest
+            dotnet tool install dotnet-ef
+            
+      - name: Publish with DOTNET
+        run: dotnet publish ${{env.DOTNET_SOLUTION}} -c Release -o ${{env.DOTNET_ROOT}}/myapp
+
+      - name: Generate scripts
+        run: dotnet ef migrations script --project ${{env.DOTNET_PROJECT}} --startup-project ${{env.DOTNET_STARTPRO}} --output ${{env.DOTNET_ROOT}}\sql\sql-script.sql --idempotent --context ApplicationContext
+
+      - name: Azure SQL Migration Deploy 
+        uses: Azure/sql-action@v1
+        with:
+          server-name: ${{env.AZURE_SQL_SERVER}}
+          connection-string: ${{ secrets.CONNECTION_STRING }}
+          sql-file: ${{env.DOTNET_ROOT}}\sql\sql-script.sql
+
+      - name: Upload Artifact for deployment job
+        uses: actions/upload-artifact@v2
+        with:
+          name: .net-app
+          path: ${{env.DOTNET_ROOT}}/myapp
+          
+        env:
+          ASPNETCORE_ENVIRONMENT: Production
+          
+  Deploy:
+    runs-on: windows-latest
+    needs: Build
+    environment:
+      name: 'Production'
+      url: ${{ steps.deploy-to-webapp.outputs.webapp-url }}
+
+    steps:
+      - name: Download artifact from build job
+        uses: actions/download-artifact@v2
+        with:
+          name: .net-app
+
+      - name: Deploy to Azure Web App
+        id: deploy-to-webapp
+        uses: azure/webapps-deploy@v2
+        with:
+          app-name: ${{env.AZURE_WEBAPP_NAME}}
+          slot-name: 'Production'
+          publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
+          package: .
