@@ -1,0 +1,90 @@
+############################################################################################################################################################################
+# GitHub Actions (Web or API App(AppService))                                                                                                                              #
+#                                                                                                                                                                          #
+#                                                                                                                                                                          #
+#                                          ____        __  __                   __             __  __         ______          __                                           #
+#                                         / __ \__  __/ /_/ /_  ____  ____     / /_  __  __   / /_/ /_  ___  / ____/__  _____/ /_                                          #
+#                                        / /_/ / / / / __/ __ \/ __ \/ __ \   / __ \/ / / /  / __/ __ \/ _ \/ /_  / _ \/ ___/ __/                                          #
+#                                       / ____/ /_/ / /_/ / / / /_/ / / / /  / /_/ / /_/ /  / /_/ / / /  __/ __/ /  __(__  ) /_                                            #
+#                                      /_/    \__, /\__/_/ /_/\____/_/ /_/  /_.___/\__, /   \__/_/ /_/\___/_/    \___/____/\__/                                            #
+#                                            /____/                               /____/                                                                                   #
+#                                                                                                                                                                          #
+#                                                                                                                                                                          #
+# v1.0 - by theFest                                                                                                                                                [ FW ]  #
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#
+#------------------------------------------------------> General information and configuration related to this workflow <--------------------------------------------------#
+#                                                                                                                                                                          #
+# *** This workflow will build and push a Python application to an Azure Web App when a commit is pushed to your default branch.                                           #
+# 1.) Download the Publish Profile for your Azure Web App. You can download this file from the Overview page of your Web App in the Azure Portal.                          #
+# 2.) Create a secret in your repository named AZURE_WEBAPP_PUBLISH_PROFILE, paste the publish profile contents as the value of the secret.                                #
+# 3.) Change the value for the AZURE_WEBAPP_NAME. Optionally, change the PYTHON_VERSION environment variables below.                                                       #
+#  Notes:                                                                                                                                                                  #
+#  -if you encounter any misconfiguration, bugs or errors create a pull request                                                                                            #
+#  -workflow complexity: 'Basic'                                                                                                   Python(Flask|Django) - Runs on: 'Linux' #
+############################################################################################################################################################################
+
+name: Python App
+
+env:
+  AZURE_WEBAPP_NAME: ''             # set this to the name of your Azure Web App
+  PYTHON_VERSION: ''                # set this to the Python version to use - e.g. 3.8
+
+on:
+  push:
+    branches: [ $default-branch ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  Build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set up Python version
+        uses: actions/setup-python@v3.0.0
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+
+      - name: Create and start virtual environment
+        run: |
+          python -m venv venv
+          source venv/bin/activate
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Upload artifact for deployment jobs
+        uses: actions/upload-artifact@v3
+        with:
+          name: python-app
+          path: |
+            .
+            !venv/
+
+  Deploy:
+    permissions:
+      contents: none
+    runs-on: ubuntu-latest
+    needs: Build
+    environment:
+      name: 'Development'
+      url: ${{ steps.deploy-to-webapp.outputs.webapp-url }}
+
+    steps:
+      - name: Download artifact from build job
+        uses: actions/download-artifact@v3
+        with:
+          name: python-app
+          path: .
+
+      - name: 'Deploy to Azure Web App'
+        id: deploy-to-webapp
+        uses: azure/webapps-deploy@v2
+        with:
+          app-name: ${{ env.AZURE_WEBAPP_NAME }}
+          publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
